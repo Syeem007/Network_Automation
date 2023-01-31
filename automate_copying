@@ -1,0 +1,64 @@
+from netmiko import ConnectHandler
+
+# reading the devices ip address from a file into a list (each ip on its own line)
+with open('iplist.txt') as f:
+    devices = f.read().splitlines()
+
+device_list = list()
+
+# iterating over the list with the devices ip addresses
+for ip in devices:
+    cisco_device = {
+        'device_type': 'cisco_ios',
+        'host': ip,
+        'username': 'admin',
+        'password': 'pass',
+        'port': 22,
+        'verbose': True
+    }
+    device_list.append(cisco_device)
+
+print(device_list)
+
+for device in device_list:
+    connection = ConnectHandler(**device)
+
+    print('Entering the enable mode ...')
+    # connection.enable()
+
+    # prompting the user for a config file
+    print('Sending commands from file ...')
+
+    output = connection.send_command_timing(
+        "copy bootflash:///nxos64-cs.10.2.3.F.bin scp://ip", strip_prompt=False,
+        strip_command=False, expect_string='Username:')
+    connection.write_channel("admin\n")
+
+    output += connection.read_until_prompt()
+
+    output = connection.send_command_timing("", strip_prompt=False, strip_command=False, expect_string='Password:')
+    connection.write_channel("pass\n")
+
+    output += connection.read_until_prompt()
+
+    output = connection.send_command_timing("", strip_prompt=False, strip_command=False,
+                                            expect_string='Are you sure you want to continue connecting (yes/no)?')
+    connection.write_channel("yes\n")
+
+    output += connection.read_until_prompt()
+
+    if "yes/no" in output:
+        connection.send_command_timing("yes", strip_prompt=False, strip_command=False)
+        print(output)
+        print('#' * 30)
+        print('Closing connection')
+        connection.disconnect()
+
+    '''
+    check = output.find(r"Do you want to continue with the installation:")
+    if check:
+        connection.send_command("yes")
+        output.find(r"Really abort ISSUE?")
+        connection.send_command("no")
+    else:
+    '''
